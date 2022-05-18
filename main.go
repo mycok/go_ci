@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 )
 
-func main()  {
+func main() {
 	proj := flag.String("proj", "", "project path or directory")
 	flag.Parse()
 
@@ -24,16 +23,28 @@ func run(projectPath string, out io.Writer) error {
 		return fmt.Errorf("project path or directory is required: %w", ErrValidation)
 	}
 
-	// CI-Step1: check if the app can build successfully.
-	cmdArgs := []string{"build", ".", "errors"}
-	cmd := exec.Command("go", cmdArgs...)
-	cmd.Dir = projectPath
+	pipeline := make([]step, 1)
 
-	if err := cmd.Run(); err != nil {
-		return &stepErr{step: "go build", msg: "go build failed", cause: err}
+	// CI-Step1: check if the app can build successfully.
+	pipeline[0] = newStep(
+		"go build",
+		"go",
+		"Go Build: Successful",
+		projectPath,
+		[]string{"build", ".", "errors"},
+	)
+
+	for _, s := range pipeline {
+		msg, err := s.execute()
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintln(out, msg)
+		if err != nil {
+			return err
+		}
 	}
 
-	_, err := fmt.Fprintln(out, "Go Build: Successful")
-	
-	return err
+	return nil
 }

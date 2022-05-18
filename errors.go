@@ -10,8 +10,8 @@ var (
 )
 
 type stepErr struct {
-	step string
-	msg string
+	step  string
+	msg   string
 	cause error
 }
 

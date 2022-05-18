@@ -7,23 +7,23 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	testcases := []struct{
-		name string
+	testcases := []struct {
+		name     string
 		projPath string
-		expOut string
-		expErr error
+		expOut   string
+		expErr   error
 	}{
 		{
-			name:    "successful build",
+			name:     "successful build",
 			projPath: "./testdata/tool",
-			expOut:  "Go Build: Successful\n",
-			expErr:  nil,
+			expOut:   "Go Build: Successful\n",
+			expErr:   nil,
 		},
 		{
-			name:    "failed build",
+			name:     "failed build",
 			projPath: "./testdata/toolErr",
-			expOut:  "",
-			expErr:  &stepErr{step: "go build"},
+			expOut:   "",
+			expErr:   &stepErr{step: "go build"},
 		},
 	}
 
@@ -40,7 +40,7 @@ func TestRun(t *testing.T) {
 				}
 
 				if !errors.Is(err, tc.expErr) {
-					t.Errorf("Expected error: %q, but got: %v instead.", tc.expErr, err)
+					t.Errorf("Expected error: %q, but got: %q instead.", tc.expErr, err)
 				}
 
 				return
