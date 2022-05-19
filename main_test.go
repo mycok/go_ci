@@ -16,7 +16,7 @@ func TestRun(t *testing.T) {
 		{
 			name:     "successful build",
 			projPath: "./testdata/tool",
-			expOut:   "Go Build: Successful\n",
+			expOut:   "Go build: successful\nGo test: successful\nGo fmt: successful\n",
 			expErr:   nil,
 		},
 		{
@@ -24,6 +24,12 @@ func TestRun(t *testing.T) {
 			projPath: "./testdata/toolErr",
 			expOut:   "",
 			expErr:   &stepErr{step: "go build"},
+		},
+		{
+			name:     "failed fmt",
+			projPath: "./testdata/toolFmtErr",
+			expOut:   "",
+			expErr:   &stepErr{step: "go fmt"},
 		},
 	}
 

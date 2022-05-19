@@ -29,7 +29,7 @@ func (s step) execute() (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", &stepErr{
 			step:  s.name,
-			msg:   "go build failed",
+			msg:   "failed to execute",
 			cause: err,
 		}
 	}
