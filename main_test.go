@@ -5,8 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/signal"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -17,7 +20,7 @@ func TestRun(t *testing.T) {
 		projPath string
 		expOut   string
 		expErr   error
-		mockCmd  func(ctx context.Context, name string, args...string) *exec.Cmd
+		mockCmd  func(ctx context.Context, name string, args ...string) *exec.Cmd
 	}{
 		// {
 		// 	name:     "successful pipelines",
@@ -32,11 +35,11 @@ func TestRun(t *testing.T) {
 		{
 			name:     "successful mock pipelines",
 			projPath: "./testdata/tool/",
-			expOut:   "Go build: successful\n"+
-						"Go test: successful\n"+
-						"Go fmt: successful\n"+
-						"Git push: successful\n",
-			expErr:   nil,
+			expOut: "Go build: successful\n" +
+				"Go test: successful\n" +
+				"Go fmt: successful\n" +
+				"Git push: successful\n",
+			expErr:  nil,
 			mockCmd: mockCmdContext,
 		},
 		{
@@ -56,7 +59,7 @@ func TestRun(t *testing.T) {
 			projPath: "./testdata/tool",
 			expOut:   "",
 			expErr:   context.DeadlineExceeded,
-			mockCmd: mockCmdTimeout,
+			mockCmd:  mockCmdTimeout,
 		},
 	}
 
@@ -96,13 +99,95 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestRunKill(t *testing.T) {
+	testcases := []struct {
+		name     string
+		projPath string
+		signal   syscall.Signal
+		expErr   error
+	}{
+		{
+			name:     "SIGINT",
+			projPath: "./testdata/tool/",
+			signal:   syscall.SIGINT,
+			expErr:   ErrSignal,
+		},
+		{
+			name:     "SIGTERM",
+			projPath: "./testdata/tool/",
+			signal:   syscall.SIGTERM,
+			expErr:   ErrSignal,
+		},
+		{
+			name:     "SIGQUIT",
+			projPath: "./testdata/tool/",
+			signal:   syscall.SIGQUIT,
+			expErr:   nil,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			command = mockCmdTimeout
+
+			// Since we are handling signals, the subtest functions
+			// will run concurrently.
+			errChan := make(chan error)
+			expSigChan := make(chan os.Signal, 1)
+			ignoredSigChan := make(chan os.Signal, 1)
+
+			signal.Notify(ignoredSigChan, syscall.SIGQUIT)
+			defer close(ignoredSigChan)
+			defer signal.Stop(ignoredSigChan)
+
+			signal.Notify(expSigChan, syscall.SIGINT, syscall.SIGTERM)
+			defer close(expSigChan)
+			defer signal.Stop(expSigChan)
+
+			go func() {
+				errChan <- run(tc.projPath, ioutil.Discard)
+			}()
+
+			go func() {
+				time.Sleep(1 * time.Second)
+				syscall.Kill(syscall.Getpid(), tc.signal)
+			}()
+
+			select {
+			case err := <-errChan:
+				if err == nil {
+					t.Errorf("Expected error: %q, but got nil instead", tc.expErr)
+
+					return
+				}
+
+				if !errors.Is(err, ErrSignal) {
+					t.Errorf("Expected error: %q, but got: %q instead.", tc.expErr, err)
+				}
+
+				select {
+				case sig := <-expSigChan:
+					if sig != tc.signal {
+						t.Errorf("Expected signal %q, but got: %q instead", tc.signal, sig)
+					}
+				default:
+					t.Errorf("Signal not received")
+				}
+
+			case <-ignoredSigChan:
+
+			}
+		})
+	}
+}
+
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
 
 	if os.Getenv("GO_HELPER_TIMEOUT") == "1" {
-		time.Sleep(11*time.Second)
+		time.Sleep(11 * time.Second)
 	}
 
 	if os.Args[2] == "git" {
@@ -130,4 +215,3 @@ func mockCmdTimeout(ctx context.Context, name string, args ...string) *exec.Cmd 
 
 	return cmd
 }
-

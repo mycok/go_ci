@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -56,27 +58,51 @@ func run(projPath string, out io.Writer) error {
 		[]string{"-l", "."},
 	)
 
-		// CI-Step4: check if the app code comforms with the golang formating rules.
-		pipeline[3] = newTimeoutStep(
-			"git push",
-			"git",
-			"Git push: successful",
-			projPath,
-			[]string{"push", "origin", "main"},
-			10*time.Second,
-		)
-	
-	for _, s := range pipeline {
-		msg, err := s.execute()
-		if err != nil {
-			return err
+	// CI-Step4: check if the app code comforms with the golang formating rules.
+	pipeline[3] = newTimeoutStep(
+		"git push",
+		"git",
+		"Git push: successful",
+		projPath,
+		[]string{"push", "origin", "main"},
+		10*time.Second,
+	)
+
+	sigChan := make(chan os.Signal, 1)
+	errChan := make(chan error)
+	doneChan := make(chan struct{})
+
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
+	go func() {
+		for _, s := range pipeline {
+			msg, err := s.execute()
+			if err != nil {
+				errChan <- err
+
+				return
+			}
+
+			_, err = fmt.Fprintln(out, msg)
+			if err != nil {
+				errChan <- err
+
+				return
+			}
 		}
 
-		_, err = fmt.Fprintln(out, msg)
-		if err != nil {
+		close(doneChan)
+	}()
+
+	for {
+		select {
+		case sig := <-sigChan:
+			signal.Stop(sigChan)
+			return fmt.Errorf("%s: Exiting: %w", sig, ErrSignal)
+		case err := <-errChan:
 			return err
+		case <-doneChan:
+			return nil
 		}
 	}
-
-	return nil
 }
