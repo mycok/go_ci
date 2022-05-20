@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 )
 
 type executer interface {
@@ -27,7 +28,7 @@ func run(projPath string, out io.Writer) error {
 		return fmt.Errorf("project path or directory is required: %w", ErrValidation)
 	}
 
-	pipeline := make([]executer, 3)
+	pipeline := make([]executer, 4)
 
 	// CI-Step1: check if the app can build successfully.
 	pipeline[0] = newStep(
@@ -54,6 +55,16 @@ func run(projPath string, out io.Writer) error {
 		projPath,
 		[]string{"-l", "."},
 	)
+
+		// CI-Step4: check if the app code comforms with the golang formating rules.
+		pipeline[3] = newTimeoutStep(
+			"git push",
+			"git",
+			"Git push: successful",
+			projPath,
+			[]string{"push", "origin", "main"},
+			10*time.Second,
+		)
 	
 	for _, s := range pipeline {
 		msg, err := s.execute()
