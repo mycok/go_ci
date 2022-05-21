@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	testcases := []struct {
+	testCases := []struct {
 		name     string
 		projPath string
 		expOut   string
@@ -63,7 +63,7 @@ func TestRun(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out bytes.Buffer
 
@@ -100,7 +100,7 @@ func TestRun(t *testing.T) {
 }
 
 func TestRunKill(t *testing.T) {
-	testcases := []struct {
+	testCases := []struct {
 		name     string
 		projPath string
 		signal   syscall.Signal
@@ -126,11 +126,11 @@ func TestRunKill(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testcases {
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			command = mockCmdTimeout
 
-			// Since we are handling signals, the subtest functions
+			// Since we are handling signals, the sub-test functions
 			// will run concurrently.
 			errChan := make(chan error)
 			expSigChan := make(chan os.Signal, 1)
@@ -145,7 +145,7 @@ func TestRunKill(t *testing.T) {
 			defer signal.Stop(expSigChan)
 
 			go func() {
-				errChan <- run(tc.projPath, ioutil.Discard)
+				errChan <- run(tc.projPath, io.Discard)
 			}()
 
 			go func() {
@@ -199,11 +199,11 @@ func TestHelperProcess(t *testing.T) {
 }
 
 func mockCmdContext(ctx context.Context, name string, args ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess"}
-	cs = append(cs, name)
-	cs = append(cs, args...)
+	cmdArgs := []string{"-test.run=TestHelperProcess"}
+	cmdArgs = append(cmdArgs, name)
+	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.CommandContext(ctx, os.Args[0], cs...)
+	cmd := exec.CommandContext(ctx, os.Args[0], cmdArgs...)
 	cmd.Env = []string{"GO_WANT_HELPER_PROCESS=1"}
 
 	return cmd

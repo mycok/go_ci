@@ -49,7 +49,7 @@ func run(projPath string, out io.Writer) error {
 		[]string{"test", "-v"},
 	)
 
-	// CI-Step3: check if the app code comforms with the golang formating rules.
+	// CI-Step3: check if the app code conforms with the golang formatting rules.
 	pipeline[2] = newExecutionStep(
 		"go fmt",
 		"gofmt",
@@ -58,7 +58,7 @@ func run(projPath string, out io.Writer) error {
 		[]string{"-l", "."},
 	)
 
-	// CI-Step4: check if the app code comforms with the golang formating rules.
+	// CI-Step4: check if the app code conforms with the golang formatting rules.
 	pipeline[3] = newTimeoutStep(
 		"git push",
 		"git",
